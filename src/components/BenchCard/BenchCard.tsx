@@ -4,6 +4,7 @@ import type { Bench } from '@/types';
 import { MATERIAL_LABELS, SHADE_LABELS, NOISE_LABELS, STAY_DURATION_LABELS } from '@/types';
 import Rating from '@/components/Rating/Rating';
 import { calculateComfortScore, getComfortLevel, getComfortColor } from '@/utils/comfort';
+import { SceneTagBadges } from '@/components/SceneTags/SceneTags';
 
 interface BenchCardProps {
   bench: Bench;
@@ -65,6 +66,8 @@ export default function BenchCard({ bench, index = 0 }: BenchCardProps) {
             </span>
           )}
         </div>
+
+        <SceneTagBadges tags={bench.sceneTags || []} className="mb-3" />
 
         <div className="flex items-center justify-between">
           <Rating value={bench.rating} readOnly size="sm" />

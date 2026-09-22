@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import type { Bench, BenchExperience, MaterialType, OrientationType, ShadeLevelType, NoiseLevelType, StayDurationType } from '@/types';
+import type { Bench, BenchExperience, MaterialType, OrientationType, ShadeLevelType, NoiseLevelType, SceneTagType } from '@/types';
 import { loadBenches, saveBenches } from '@/utils/storage';
 import { generateId } from '@/utils/comfort';
+import { getSceneTagAttributes, getMismatchedSceneTags } from '@/utils/sceneTags';
 import { mockBenches } from '@/data/mockBenches';
 
 interface BenchState {
@@ -11,6 +12,7 @@ interface BenchState {
   orientationFilter: OrientationType | null;
   shadeFilter: ShadeLevelType | null;
   noiseFilter: NoiseLevelType | null;
+  sceneTagFilter: SceneTagType | null;
   initialized: boolean;
 }
 
@@ -21,9 +23,10 @@ interface BenchActions {
   setOrientationFilter: (orientation: OrientationType | null) => void;
   setShadeFilter: (shade: ShadeLevelType | null) => void;
   setNoiseFilter: (noise: NoiseLevelType | null) => void;
+  setSceneTagFilter: (tag: SceneTagType | null) => void;
   clearFilters: () => void;
-  addBench: (bench: Omit<Bench, 'id' | 'createdAt' | 'updatedAt' | 'experiences'>) => void;
-  updateBench: (id: string, updates: Partial<Bench>) => void;
+  addBench: (bench: Omit<Bench, 'id' | 'createdAt' | 'updatedAt' | 'experiences' | 'sceneTags'>) => void;
+  updateBench: (id: string, updates: Partial<Bench>) => boolean;
   deleteBench: (id: string) => void;
   getBenchById: (id: string) => Bench | undefined;
   addExperience: (benchId: string, experience: Omit<BenchExperience, 'id' | 'benchId'>) => void;
@@ -39,6 +42,7 @@ const initialState: BenchState = {
   orientationFilter: null,
   shadeFilter: null,
   noiseFilter: null,
+  sceneTagFilter: null,
   initialized: false,
 };
 
@@ -60,6 +64,7 @@ export const useBenchStore = create<BenchState & BenchActions>((set, get) => ({
   setOrientationFilter: (orientation) => set({ orientationFilter: orientation }),
   setShadeFilter: (shade) => set({ shadeFilter: shade }),
   setNoiseFilter: (noise) => set({ noiseFilter: noise }),
+  setSceneTagFilter: (tag) => set({ sceneTagFilter: tag }),
 
   clearFilters: () => set({
     searchQuery: '',
@@ -67,6 +72,7 @@ export const useBenchStore = create<BenchState & BenchActions>((set, get) => ({
     orientationFilter: null,
     shadeFilter: null,
     noiseFilter: null,
+    sceneTagFilter: null,
   }),
 
   addBench: (benchData) => {
@@ -75,6 +81,7 @@ export const useBenchStore = create<BenchState & BenchActions>((set, get) => ({
       ...benchData,
       id: generateId(),
       experiences: [],
+      sceneTags: [],
       createdAt: now,
       updatedAt: now,
     };
@@ -84,6 +91,20 @@ export const useBenchStore = create<BenchState & BenchActions>((set, get) => ({
   },
 
   updateBench: (id, updates) => {
+    const target = get().benches.find((bench) => bench.id === id);
+    if (!target) return false;
+
+    // 保存守卫：合并后的材质/靠背/遮阴/噪音若导致已选场景标签失配，
+    // 整次保存拒绝——不更新内存记录，也不写入浏览器存档（排行随之不变）
+    const merged = { ...target, ...updates };
+    const mismatched = getMismatchedSceneTags(
+      merged.sceneTags,
+      getSceneTagAttributes(merged),
+    );
+    if (mismatched.length > 0) {
+      return false;
+    }
+
     const newBenches = get().benches.map((bench) =>
       bench.id === id
         ? { ...bench, ...updates, updatedAt: new Date().toISOString() }
@@ -91,6 +112,7 @@ export const useBenchStore = create<BenchState & BenchActions>((set, get) => ({
     );
     set({ benches: newBenches });
     saveBenches(newBenches);
+    return true;
   },
 
   deleteBench: (id) => {
@@ -153,8 +175,8 @@ export const useBenchStore = create<BenchState & BenchActions>((set, get) => ({
   },
 
   getFilteredBenches: () => {
-    const { benches, searchQuery, materialFilter, orientationFilter, shadeFilter, noiseFilter } = get();
-    
+    const { benches, searchQuery, materialFilter, orientationFilter, shadeFilter, noiseFilter, sceneTagFilter } = get();
+
     return benches.filter((bench) => {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -163,12 +185,13 @@ export const useBenchStore = create<BenchState & BenchActions>((set, get) => ({
         const matchReview = bench.review.toLowerCase().includes(query);
         if (!matchName && !matchLocation && !matchReview) return false;
       }
-      
+
       if (materialFilter && bench.material !== materialFilter) return false;
       if (orientationFilter && bench.orientation !== orientationFilter) return false;
       if (shadeFilter && bench.shadeLevel !== shadeFilter) return false;
       if (noiseFilter && bench.noiseLevel !== noiseFilter) return false;
-      
+      if (sceneTagFilter && !(bench.sceneTags || []).includes(sceneTagFilter)) return false;
+
       return true;
     });
   },

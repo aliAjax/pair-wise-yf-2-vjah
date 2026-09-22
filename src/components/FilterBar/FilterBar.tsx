@@ -2,6 +2,7 @@ import { Search, X } from 'lucide-react';
 import { useBenchStore } from '@/store/useBenchStore';
 import { MATERIAL_LABELS, ORIENTATION_LABELS, SHADE_LABELS, NOISE_LABELS } from '@/types';
 import type { MaterialType, OrientationType, ShadeLevelType, NoiseLevelType } from '@/types';
+import { SceneTagFilter } from '@/components/SceneTags/SceneTags';
 
 export default function FilterBar() {
   const {
@@ -10,16 +11,18 @@ export default function FilterBar() {
     orientationFilter,
     shadeFilter,
     noiseFilter,
+    sceneTagFilter,
     setSearchQuery,
     setMaterialFilter,
     setOrientationFilter,
     setShadeFilter,
     setNoiseFilter,
+    setSceneTagFilter,
     clearFilters,
     getFilteredBenches,
   } = useBenchStore();
 
-  const hasFilters = searchQuery || materialFilter || orientationFilter || shadeFilter || noiseFilter;
+  const hasFilters = searchQuery || materialFilter || orientationFilter || shadeFilter || noiseFilter || sceneTagFilter;
   const filteredCount = getFilteredBenches().length;
 
   return (
@@ -105,6 +108,11 @@ export default function FilterBar() {
               </button>
             )}
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-deep-brown/5">
+          <span className="text-xs text-ink-light mr-1">场景标签</span>
+          <SceneTagFilter value={sceneTagFilter} onChange={setSceneTagFilter} />
         </div>
       </div>
     </div>

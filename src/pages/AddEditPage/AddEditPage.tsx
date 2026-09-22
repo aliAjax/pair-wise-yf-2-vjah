@@ -31,6 +31,8 @@ import type {
 } from '@/types';
 import Rating from '@/components/Rating/Rating';
 import { generateId } from '@/utils/comfort';
+import { getSceneTagAttributes, getMismatchedSceneTags, SCENE_TAG_RULES } from '@/utils/sceneTags';
+import { SceneTagBadges } from '@/components/SceneTags/SceneTags';
 
 export default function AddEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -115,7 +117,7 @@ export default function AddEditPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       alert('请输入长椅名称');
       return;
@@ -126,7 +128,27 @@ export default function AddEditPage() {
     }
 
     if (isEdit && id) {
-      updateBench(id, formData);
+      // 已选场景标签若与编辑后的材质/靠背/遮阴/噪音失配，整次保存拒绝：
+      // 不更新档案，记录和排行保持不变
+      const existingTags = existingBench?.sceneTags || [];
+      const mismatched = getMismatchedSceneTags(
+        existingTags,
+        getSceneTagAttributes(formData),
+      );
+      if (mismatched.length > 0) {
+        const names = mismatched.map((tag) => SCENE_TAG_RULES[tag].label).join('、');
+        const reasons = mismatched
+          .map((tag) => `「${SCENE_TAG_RULES[tag].label}」：${SCENE_TAG_RULES[tag].requirement}`)
+          .join('\n');
+        alert(`以下已选场景标签与当前属性不再匹配，无法保存：${names}\n\n${reasons}\n\n请调整属性，或在详情页取消相关标签后再保存。`);
+        return;
+      }
+
+      const saved = updateBench(id, formData);
+      if (!saved) {
+        alert('保存失败：场景标签与当前属性不匹配，请调整后再保存。');
+        return;
+      }
       experiences.forEach((exp) => {
         const existingExp = existingBench?.experiences.find((e) => e.id === exp.id);
         if (existingExp) {
@@ -151,6 +173,11 @@ export default function AddEditPage() {
     evening: Sunset,
     night: Moon,
   };
+
+  const existingSceneTags = existingBench?.sceneTags || [];
+  const editingMismatchedTags = isEdit
+    ? getMismatchedSceneTags(existingSceneTags, getSceneTagAttributes(formData))
+    : [];
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -348,6 +375,28 @@ export default function AddEditPage() {
                 </div>
               </div>
             </div>
+
+            {isEdit && existingSceneTags.length > 0 && (
+              <div
+                className={`mt-4 pt-4 border-t rounded-lg ${
+                  editingMismatchedTags.length > 0
+                    ? 'border-red-200 bg-red-50/60 p-3'
+                    : 'border-deep-brown/10'
+                }`}
+              >
+                <div className="text-sm font-medium text-deep-brown mb-1.5">
+                  已选场景标签
+                </div>
+                <SceneTagBadges tags={existingSceneTags} />
+                <p className="text-xs text-ink-light mt-2">
+                  {editingMismatchedTags.length > 0
+                    ? `当前属性与「${editingMismatchedTags
+                        .map((tag) => SCENE_TAG_RULES[tag].label)
+                        .join('、')}」不再匹配，保存将被拒绝；请改回属性，或在详情页取消该标签。`
+                    : '修改材质、靠背、遮阴或噪音可能导致标签失配，失配时无法保存。'}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="paper-texture rounded-xl shadow-paper p-6 fade-in opacity-0 stagger-3">
@@ -399,7 +448,7 @@ export default function AddEditPage() {
 
             {experiences.length > 0 ? (
               <div className="space-y-4">
-                {experiences.map((exp, index) => {
+                {experiences.map((exp) => {
                   const TimeIcon = timePeriodIcons[exp.timePeriod];
                   return (
                     <div

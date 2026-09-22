@@ -24,14 +24,15 @@ import {
   STAY_DURATION_LABELS,
   TIME_PERIOD_LABELS,
 } from '@/types';
-import type { TimePeriodType } from '@/types';
+import type { TimePeriodType, SceneTagType } from '@/types';
 import Rating from '@/components/Rating/Rating';
 import { calculateComfortScore, getComfortLevel, getComfortColor } from '@/utils/comfort';
+import { SceneTagPicker } from '@/components/SceneTags/SceneTags';
 
 export default function BenchDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getBenchById, deleteBench, initialize, initialized } = useBenchStore();
+  const { getBenchById, deleteBench, updateBench, initialize, initialized } = useBenchStore();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
@@ -80,6 +81,16 @@ export default function BenchDetail() {
       deleteBench(id);
       navigate('/');
     }
+  };
+
+  const handleToggleSceneTag = (tag: SceneTagType) => {
+    if (!id) return;
+    const current = bench.sceneTags || [];
+    const next = current.includes(tag)
+      ? current.filter((item) => item !== tag)
+      : [...current, tag];
+    // store 守卫会对失配标签拒绝保存；此处勾选器已禁用不满足条件的标签
+    updateBench(id, { sceneTags: next });
   };
 
   return (
@@ -210,6 +221,16 @@ export default function BenchDetail() {
                 </button>
               </div>
             </div>
+          </div>
+
+          <div className="paper-texture rounded-xl shadow-paper p-6 fade-in opacity-0 stagger-2">
+            <h2 className="font-serif text-lg font-semibold text-deep-brown mb-1">
+              场景标签
+            </h2>
+            <p className="text-xs text-ink-light mb-4">
+              勾选这张长椅适合的场景；标签随属性自动判定，不满足条件时无法勾选
+            </p>
+            <SceneTagPicker bench={bench} onToggle={handleToggleSceneTag} />
           </div>
         </div>
 
