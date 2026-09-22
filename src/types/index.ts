@@ -4,6 +4,7 @@ export type ShadeLevelType = 'none' | 'partial' | 'full';
 export type NoiseLevelType = 'quiet' | 'moderate' | 'noisy';
 export type StayDurationType = 'short' | 'medium' | 'long' | 'verylong';
 export type TimePeriodType = 'morning' | 'noon' | 'afternoon' | 'evening' | 'night';
+export type SceneTagType = 'quiet-reading' | 'nap' | 'view';
 
 export interface BenchExperience {
   id: string;
@@ -28,6 +29,7 @@ export interface Bench {
   rating: number;
   review: string;
   experiences: BenchExperience[];
+  sceneTags: SceneTagType[];
   createdAt: string;
   updatedAt: string;
 }
@@ -84,4 +86,10 @@ export const TIME_PERIOD_ICONS: Record<TimePeriodType, string> = {
   afternoon: 'cloud-sun',
   evening: 'sunset',
   night: 'moon',
+};
+
+export const SCENE_TAG_LABELS: Record<SceneTagType, string> = {
+  'quiet-reading': '安静阅读',
+  nap: '午休',
+  view: '观景',
 };

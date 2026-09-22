@@ -37,7 +37,7 @@ export default function AddEditPage() {
   const navigate = useNavigate();
   const isEdit = !!id;
 
-  const { getBenchById, addBench, updateBench, initialize, initialized, addExperience, updateExperience, deleteExperience } = useBenchStore();
+  const { getBenchById, addBench, updateBench, initialize, initialized, replaceExperiences } = useBenchStore();
   const existingBench = id ? getBenchById(id) : undefined;
 
   const [formData, setFormData] = useState({
@@ -107,15 +107,13 @@ export default function AddEditPage() {
   };
 
   const handleDeleteExperience = (expId: string) => {
+    // 仅在表单本地移除，保存时统一同步，保证保存被拒绝时记录不变
     setExperiences(experiences.filter((exp) => exp.id !== expId));
-    if (isEdit && id) {
-      deleteExperience(id, expId);
-    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       alert('请输入长椅名称');
       return;
@@ -126,18 +124,17 @@ export default function AddEditPage() {
     }
 
     if (isEdit && id) {
-      updateBench(id, formData);
-      experiences.forEach((exp) => {
-        const existingExp = existingBench?.experiences.find((e) => e.id === exp.id);
-        if (existingExp) {
-          updateExperience(id, exp.id, exp);
-        } else {
-          addExperience(id, exp);
-        }
-      });
+      // 特征变更导致已选场景标签失配时整次拒绝，任何字段都不写入
+      const ok = updateBench(id, formData);
+      if (!ok) {
+        alert('保存失败：材质、靠背、遮阴或噪音的变化会使已勾选的场景标签不再满足条件。\n请前往详情页调整场景标签后再保存。');
+        return;
+      }
+      replaceExperiences(id, experiences);
     } else {
       addBench({
         ...formData,
+        sceneTags: [],
       });
     }
 

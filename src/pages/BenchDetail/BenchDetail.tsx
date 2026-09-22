@@ -24,15 +24,19 @@ import {
   STAY_DURATION_LABELS,
   TIME_PERIOD_LABELS,
 } from '@/types';
-import type { TimePeriodType } from '@/types';
+import type { SceneTagType, TimePeriodType } from '@/types';
+import { SceneTagPicker } from '@/components/SceneTag/SceneTag';
+import { getInvalidSceneTags, SCENE_TAG_REQUIREMENTS } from '@/rules/sceneTags';
+import { SCENE_TAG_LABELS } from '@/types';
 import Rating from '@/components/Rating/Rating';
 import { calculateComfortScore, getComfortLevel, getComfortColor } from '@/utils/comfort';
 
 export default function BenchDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getBenchById, deleteBench, initialize, initialized } = useBenchStore();
+  const { getBenchById, deleteBench, updateBench, initialize, initialized } = useBenchStore();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [sceneTags, setSceneTags] = useState<SceneTagType[]>([]);
 
   useEffect(() => {
     if (!initialized) {
@@ -41,6 +45,14 @@ export default function BenchDetail() {
   }, [initialized, initialize]);
 
   const bench = id ? getBenchById(id) : undefined;
+
+  useEffect(() => {
+    if (initialized && id && bench) {
+      setSceneTags(bench.sceneTags || []);
+    }
+    // 仅在切换长椅或存档标签变化时同步本地勾选状态
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialized, id, bench?.sceneTags]);
 
   useEffect(() => {
     if (bench === undefined && initialized) {
@@ -79,6 +91,34 @@ export default function BenchDetail() {
     if (id) {
       deleteBench(id);
       navigate('/');
+    }
+  };
+
+  const tagFeatures = {
+    material: bench.material,
+    hasBackrest: bench.hasBackrest,
+    shadeLevel: bench.shadeLevel,
+    noiseLevel: bench.noiseLevel,
+  };
+  const invalidTags = getInvalidSceneTags(sceneTags, tagFeatures);
+  const tagsChanged =
+    sceneTags.length !== (bench.sceneTags || []).length ||
+    sceneTags.some((tag) => !(bench.sceneTags || []).includes(tag));
+
+  // 编辑材质、靠背、遮阴或噪音导致已选标签失配时，整次保存拒绝，记录与排行不变
+  const handleSaveTags = () => {
+    if (invalidTags.length > 0) {
+      const reasons = invalidTags
+        .map((tag) => `「${SCENE_TAG_LABELS[tag]}」：${SCENE_TAG_REQUIREMENTS[tag]}`)
+        .join('\n');
+      alert(`以下场景标签已不满足条件，无法保存，请先取消勾选：\n${reasons}`);
+      return;
+    }
+    if (id) {
+      const ok = updateBench(id, { sceneTags });
+      if (!ok) {
+        alert('保存失败：场景标签与当前长椅特征不匹配。');
+      }
     }
   };
 
@@ -178,6 +218,35 @@ export default function BenchDetail() {
                   <span className="text-sm font-medium text-deep-brown">
                     {STAY_DURATION_LABELS[bench.stayDuration]}
                   </span>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h3 className="font-serif font-semibold text-deep-brown mb-1">
+                  场景标签
+                </h3>
+                <p className="text-xs text-ink-light mb-3">
+                  勾选符合这张长椅特征的场景，标签条件不满足时无法勾选
+                </p>
+                <SceneTagPicker
+                  value={sceneTags}
+                  features={tagFeatures}
+                  onChange={setSceneTags}
+                />
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-xs text-ink-light">
+                    {invalidTags.length > 0
+                      ? `有 ${invalidTags.length} 个已选标签已失配，保存将被拒绝`
+                      : '已选标签均满足条件'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSaveTags}
+                    disabled={!tagsChanged && invalidTags.length === 0}
+                    className="px-4 py-1.5 text-sm text-white bg-moss-green hover:bg-moss-light disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors"
+                  >
+                    保存标签
+                  </button>
                 </div>
               </div>
 

@@ -1,7 +1,8 @@
 import { Search, X } from 'lucide-react';
 import { useBenchStore } from '@/store/useBenchStore';
-import { MATERIAL_LABELS, ORIENTATION_LABELS, SHADE_LABELS, NOISE_LABELS } from '@/types';
+import { MATERIAL_LABELS, ORIENTATION_LABELS, SHADE_LABELS, NOISE_LABELS, SCENE_TAG_LABELS } from '@/types';
 import type { MaterialType, OrientationType, ShadeLevelType, NoiseLevelType } from '@/types';
+import { SceneTagFilter } from '@/components/SceneTag/SceneTag';
 
 export default function FilterBar() {
   const {
@@ -10,16 +11,18 @@ export default function FilterBar() {
     orientationFilter,
     shadeFilter,
     noiseFilter,
+    sceneTagFilter,
     setSearchQuery,
     setMaterialFilter,
     setOrientationFilter,
     setShadeFilter,
     setNoiseFilter,
+    setSceneTagFilter,
     clearFilters,
     getFilteredBenches,
   } = useBenchStore();
 
-  const hasFilters = searchQuery || materialFilter || orientationFilter || shadeFilter || noiseFilter;
+  const hasFilters = searchQuery || materialFilter || orientationFilter || shadeFilter || noiseFilter || sceneTagFilter;
   const filteredCount = getFilteredBenches().length;
 
   return (
@@ -89,6 +92,16 @@ export default function FilterBar() {
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-ink-light">场景</span>
+            <SceneTagFilter value={sceneTagFilter} onChange={setSceneTagFilter} />
+            {sceneTagFilter && (
+              <span className="text-xs text-ink-light">
+                已选：{SCENE_TAG_LABELS[sceneTagFilter]}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-3 ml-auto">
